@@ -1,4 +1,4 @@
-"use strict";
+'use strict';
 
 async function promiseReduce(asyncFunctions = [], reduce, initialValue = 0) {
   let result = initialValue;
@@ -11,6 +11,38 @@ async function promiseReduce(asyncFunctions = [], reduce, initialValue = 0) {
   return Promise.resolve(result);
 }
 
+function promiseReduce2(asyncFunctions = [], reduce, initialValue = 0) {
+  let promise = Promise.resolve(initialValue);
+  asyncFunctions.forEach(
+    fun => promise = promise.then(
+      async sum => {
+        try {
+          return reduce(sum, await fun());
+        } catch (e) {
+          console.warn(`${fun.name} failed with ${e}`);
+          return sum;
+        }
+      }
+    )
+  );
+  return promise;
+}
+
+async function promiseReduce3(asyncFunctions = [], reduce, initialValue = 0) {
+  return asyncFunctions.reduce(
+    (promise, fun) => promise.then(
+      async sum => {
+        try {
+          return reduce(sum, await fun());
+        } catch (e) {
+          console.warn(`${fun.name} failed with ${e}`);
+          return sum;
+        }
+      }
+    ),
+    Promise.resolve(initialValue)
+  );
+}
 
 // Test ---------------------
 
@@ -26,11 +58,16 @@ const fn2 = () => new Promise(resolve => {
 
 const fn3 = () => new Promise(() => {
   console.log('fn3');
-  throw new Error("Aaa");
+  throw new Error('Aaa');
 });
 
-promiseReduce(
-  [fn1, fn2, fn3],
+const fn4 = () => new Promise(resolve => {
+  console.log('fn4');
+  setTimeout(() => resolve(5), 500);
+});
+
+promiseReduce3(
+  [fn1, fn2, fn3, fn4],
   function(memo, value) {
     console.log('reduce');
     return memo * value;
